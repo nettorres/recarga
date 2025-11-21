@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Projeto Recarga - TorresNet</title>
+
+  <!-- Firebase (CDN compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 420px;
+      margin: 30px auto;
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    h1, h2 {
+      text-align: center;
+      color: #cc0000;
+      margin-bottom: 10px;
+    }
+
+    label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
+    input {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 15px;
+      border: none;
+      border-radius: 5px;
+      background: #cc0000;
+      color: #fff;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #a60000;
+    }
+
+    .link {
+      margin-top: 10px;
+      text-align: center;
+      font-size: 14px;
+      color: #555;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .alerta {
+      background: #fff5e6;
+      border-left: 4px solid #ff9800;
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 13px;
+    }
+
+    .sucesso {
+      background: #e6ffe6;
+      border-left: 4px solid #4caf50;
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 13px;
+    }
+
+    .erro {
+      background: #ffe6e6;
+      border-left: 4px solid #f44336;
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 13px;
+    }
+
+    .info-linha {
+      margin-top: 8px;
+      font-size: 14px;
+    }
+
+    .codigo-grande {
+      font-size: 20px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="auth-container">
+    <h1>Projeto Recarga</h1>
+    <h2>TorresNet</h2>
+
+    <!-- FORM LOGIN -->
+    <div id="login-form">
+      <h3>Entrar</h3>
+      <label for="login-whatsapp">WhatsApp (somente números)</label>
+      <input id="login-whatsapp" type="text" placeholder="Ex: 33999999999" />
+
+      <label for="login-pin">PIN (4 dígitos)</label>
+      <input id="login-pin" type="password" maxlength="4" placeholder="****" />
+
+      <button id="btn-login">Entrar</button>
+
+      <div class="link" id="link-ir-cadastro">
+        É meu primeiro acesso / Criar conta
+      </div>
+
+      <div id="login-mensagem"></div>
+    </div>
+
+    <!-- FORM CADASTRO -->
+    <div id="cadastro-form" class="hidden">
+      <h3>Criar conta</h3>
+      <label for="cadastro-whatsapp">WhatsApp (somente números)</label>
+      <input id="cadastro-whatsapp" type="text" placeholder="Ex: 33999999999" />
+
+      <label for="cadastro-pin">PIN (4 dígitos)</label>
+      <input id="cadastro-pin" type="password" maxlength="4" placeholder="****" />
+
+      <label for="cadastro-pin2">Confirmar PIN</label>
+      <input id="cadastro-pin2" type="password" maxlength="4" placeholder="****" />
+
+      <button id="btn-cadastrar">Cadastrar</button>
+
+      <div class="link" id="link-ir-login">
+        Já tenho conta / Voltar para login
+      </div>
+
+      <div id="cadastro-mensagem"></div>
+    </div>
+  </div>
+
+  <!-- PAINEL DO CLIENTE -->
+  <div class="container hidden" id="painel-container">
+    <h1>Recarga TorresNet</h1>
+    <div id="painel-boasvindas"></div>
+
+    <div class="alerta">
+      <strong>Atenção:</strong><br />
+      Ao gerar o código, sua recarga será ativada imediatamente.<br />
+      • Você só poderá gerar um novo código após <strong>27 dias</strong>.<br />
+      • Sua recarga terá validade de <strong>30 dias</strong> a partir da geração do código.<br />
+      Gere o código apenas quando realmente for usar e guarde-o com cuidado.
+    </div>
+
+    <div id="painel-conteudo"></div>
+
+    <button id="btn-sair" style="background:#555; margin-top: 20px;">
+      Sair
+    </button>
+  </div>
+
+  <script>
+    // 1) CONFIGURAR FIREBASE AQUI – JÁ ESTÁ COM O SEU PROJETO
+    const firebaseConfig = {
+      apiKey: "AIzaSyDhAcuOK0yATxZh1SxkWpOFAZ6bt88Azvk",
+      authDomain: "recargatv-48151.firebaseapp.com",
+      projectId: "recargatv-48151",
+      storageBucket: "recargatv-48151.appspot.com",
+      messagingSenderId: "88963665734",
+      appId: "1:88963665734:web:0f77e23e547547e5fedf47"
+    };
+
+    // Inicializa Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // Coleção de clientes
+    const clientesRef = db.collection("clientes");
+
+    // 2) FUNÇÕES DE APOIO
+
+    // Formata só números no WhatsApp
+    function limparWhatsApp(numero) {
+      return numero.replace(/\D/g, "");
+    }
+
+    // Verifica se PIN é válido (4 dígitos numéricos)
+    function pinValido(pin) {
+      return /^[0-9]{4}$/.test(pin);
+    }
+
+    // Gera código de 16 dígitos numéricos
+    function gerarCodigo16() {
+      let code = "";
+      for (let i = 0; i < 16; i++) {
+        code += Math.floor(Math.random() * 10); // 0-9
+      }
+      return code;
+    }
+
+    // Converte timestamp (ms) em data legível
+    function formatarData(timestampMs) {
+      const d = new Date(timestampMs);
+      return d.toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric"
+      });
+    }
+
+    // Dias entre duas datas (ms)
+    function diasEntre(agoraMs, futuroMs) {
+      const diff = futuroMs - agoraMs;
+      return Math.ceil(diff / (1000 * 60 * 60 * 24));
+    }
+
+    // Estados de tela
+    const authContainer = document.getElementById("auth-container");
+    const loginForm = document.getElementById("login-form");
+    const cadastroForm = document.getElementById("cadastro-form");
+    const painelContainer = document.getElementById("painel-container");
+
+    const loginWhatsappInput = document.getElementById("login-whatsapp");
+    const loginPinInput = document.getElementById("login-pin");
+    const loginMensagemDiv = document.getElementById("login-mensagem");
+
+    const cadastroWhatsappInput = document.getElementById("cadastro-whatsapp");
+    const cadastroPinInput = document.getElementById("cadastro-pin");
+    const cadastroPin2Input = document.getElementById("cadastro-pin2");
+    const cadastroMensagemDiv = document.getElementById("cadastro-mensagem");
+
+    const painelBoasVindasDiv = document.getElementById("painel-boasvindas");
+    const painelConteudoDiv = document.getElementById("painel-conteudo");
+
+    let clienteLogado = null; // guarda os dados do cliente logado
+
+    // Troca para tela de cadastro
+    document.getElementById("link-ir-cadastro").onclick = () => {
+      loginForm.classList.add("hidden");
+      cadastroForm.classList.remove("hidden");
+      loginMensagemDiv.innerHTML = "";
+    };
+
+    // Troca para tela de login
+    document.getElementById("link-ir-login").onclick = () => {
+      cadastroForm.classList.add("hidden");
+      loginForm.classList.remove("hidden");
+      cadastroMensagemDiv.innerHTML = "";
+    };
+
+    // 3) CADASTRAR NOVO CLIENTE
+    document.getElementById("btn-cadastrar").onclick = async () => {
+      cadastroMensagemDiv.innerHTML = "";
+      let wa = limparWhatsApp(cadastroWhatsappInput.value);
+      let pin = cadastroPinInput.value.trim();
+      let pin2 = cadastroPin2Input.value.trim();
+
+      if (!wa) {
+        cadastroMensagemDiv.innerHTML = '<div class="erro">Informe o WhatsApp.</div>';
+        return;
+      }
+      if (!pinValido(pin)) {
+        cadastroMensagemDiv.innerHTML = '<div class="erro">PIN inválido. Use exatamente 4 dígitos numéricos.</div>';
+        return;
+      }
+      if (pin !== pin2) {
+        cadastroMensagemDiv.innerHTML = '<div class="erro">Os PINs não conferem.</div>';
+        return;
+      }
+
+      try {
+        const docRef = clientesRef.doc(wa);
+        const docSnap = await docRef.get();
+        if (docSnap.exists) {
+          cadastroMensagemDiv.innerHTML = '<div class="erro">Já existe uma conta com este WhatsApp. Faça login.</div>';
+          return;
+        }
+
+        // Cria o cliente (sem código ainda)
+        await docRef.set({
+          whatsapp: wa,
+          pin: pin, // em produção, o ideal seria criptografar
+          codigoAtual: null,
+          codigoGeradoEm: null,
+          validadeAte: null,
+          proximaGeracaoEm: null
+        });
+
+        cadastroMensagemDiv.innerHTML = '<div class="sucesso">Conta criada com sucesso! Agora faça login.</div>';
+      } catch (e) {
+        console.error(e);
+        cadastroMensagemDiv.innerHTML = '<div class="erro">Erro ao criar conta. Tente novamente.</div>';
+      }
+    };
+
+    // 4) LOGIN
+    document.getElementById("btn-login").onclick = async () => {
+      loginMensagemDiv.innerHTML = "";
+      let wa = limparWhatsApp(loginWhatsappInput.value);
+      let pin = loginPinInput.value.trim();
+
+      if (!wa) {
+        loginMensagemDiv.innerHTML = '<div class="erro">Informe o WhatsApp.</div>';
+        return;
+      }
+      if (!pinValido(pin)) {
+        loginMensagemDiv.innerHTML = '<div class="erro">PIN inválido. Use 4 dígitos numéricos.</div>';
+        return;
+      }
+
+      try {
+        const docRef = clientesRef.doc(wa);
+        const docSnap = await docRef.get();
+
+        if (!docSnap.exists) {
+          loginMensagemDiv.innerHTML = '<div class="erro">Conta não encontrada. Crie uma conta.</div>';
+          return;
+        }
+
+        const dados = docSnap.data();
+        if (dados.pin !== pin) {
+          loginMensagemDiv.innerHTML = '<div class="erro">PIN incorreto.</div>';
+          return;
+        }
+
+        // Login ok
+        clienteLogado = { id: wa, ...dados };
+        mostrarPainelCliente();
+      } catch (e) {
+        console.error(e);
+        loginMensagemDiv.innerHTML = '<div class="erro">Erro ao fazer login. Tente novamente.</div>';
+      }
+    };
+
+    // 5) MOSTRAR PAINEL DO CLIENTE
+    function mostrarPainelCliente() {
+      authContainer.classList.add("hidden");
+      painelContainer.classList.remove("hidden");
+
+      painelBoasVindasDiv.innerHTML = `
+        <div class="info-linha">
+          Olá, <strong>${clienteLogado.whatsapp}</strong>
+        </div>
+      `;
+
+      atualizarPainelConteudo();
+    }
+
+    async function atualizarPainelConteudo() {
+      // Buscar dados atualizados do cliente
+      const docRef = clientesRef.doc(clienteLogado.id);
+      const docSnap = await docRef.get();
+      if (!docSnap.exists) {
+        painelConteudoDiv.innerHTML = '<div class="erro">Erro ao carregar seus dados. Faça login novamente.</div>';
+        return;
+      }
+      clienteLogado = { id: clienteLogado.id, ...docSnap.data() };
+
+      const agora = Date.now();
+      const codigo = clienteLogado.codigoAtual;
+      const geradoEm = clienteLogado.codigoGeradoEm;
+      const validadeAte = clienteLogado.validadeAte;
+      const proximaGeracaoEm = clienteLogado.proximaGeracaoEm;
+
+      // Caso nunca tenha gerado código
+      if (!codigo || !geradoEm || !validadeAte || !proximaGeracaoEm) {
+        painelConteudoDiv.innerHTML = `
+          <div class="info-linha">
+            Você ainda não gerou seu código de recarga.
+          </div>
+          <div class="info-linha">
+            Ao gerar, sua recarga será ativada com validade de <strong>30 dias</strong>,
+            e você só poderá gerar outro código após <strong>27 dias</strong>.
+          </div>
+          <button id="btn-gerar-codigo">Gerar código agora</button>
+        `;
+        document.getElementById("btn-gerar-codigo").onclick = gerarNovoCodigo;
+        return;
+      }
+
+      // Já tem código
+      let html = `
+        <div class="info-linha">
+          Seu código atual:
+        </div>
+        <div class="codigo-grande">
+          ${codigo.replace(/(.{4})/g, "$1 ")}
+        </div>
+        <div class="info-linha">
+          Validade da recarga até: <strong>${formatarData(validadeAte)}</strong>
+        </div>
+      `;
+
+      // Verifica se já pode gerar outro
+      if (agora >= proximaGeracaoEm) {
+        html += `
+          <div class="info-linha" style="margin-top:15px;">
+            Você já pode gerar um <strong>novo código</strong>.
+          </div>
+          <button id="btn-gerar-codigo">Gerar novo código agora</button>
+        `;
+        painelConteudoDiv.innerHTML = html;
+        document.getElementById("btn-gerar-codigo").onclick = gerarNovoCodigo;
+      } else {
+        const diasFaltando = diasEntre(agora, proximaGeracaoEm);
+        html += `
+          <div class="info-linha" style="margin-top:15px;">
+            Você poderá gerar um novo código a partir de:
+            <strong>${formatarData(proximaGeracaoEm)}</strong>
+            (${diasFaltando} dia(s) restante(s)).
+          </div>
+          <div class="info-linha" style="margin-top:10px; font-size:13px;">
+            Use seu código o quanto antes para evitar perda.
+          </div>
+        `;
+        painelConteudoDiv.innerHTML = html;
+      }
+    }
+
+    // 6) GERAR NOVO CÓDIGO (27 / 30 dias)
+    async function gerarNovoCodigo() {
+      const agora = Date.now();
+      const V27 = 27 * 24 * 60 * 60 * 1000; // 27 dias em ms
+      const V30 = 30 * 24 * 60 * 60 * 1000; // 30 dias em ms
+
+      const novoCodigo = gerarCodigo16();
+      const codigoGeradoEm = agora;
+      const validadeAte = agora + V30;
+      const proximaGeracaoEm = agora + V27;
+
+      try {
+        await clientesRef.doc(clienteLogado.id).update({
+          codigoAtual: novoCodigo,
+          codigoGeradoEm: codigoGeradoEm,
+          validadeAte: validadeAte,
+          proximaGeracaoEm: proximaGeracaoEm
+        });
+
+        clienteLogado.codigoAtual = novoCodigo;
+        clienteLogado.codigoGeradoEm = codigoGeradoEm;
+        clienteLogado.validadeAte = validadeAte;
+        clienteLogado.proximaGeracaoEm = proximaGeracaoEm;
+
+        atualizarPainelConteudo();
+        alert("Código gerado com sucesso! Guarde e use o mais rápido possível.");
+      } catch (e) {
+        console.error(e);
+        alert("Erro ao gerar código. Tente novamente.");
+      }
+    }
+
+    // 7) SAIR
+    document.getElementById("btn-sair").onclick = () => {
+      clienteLogado = null;
+      painelContainer.classList.add("hidden");
+      authContainer.classList.remove("hidden");
+      loginWhatsappInput.value = "";
+      loginPinInput.value = "";
+    };
+  </script>
+</body>
+</html>
